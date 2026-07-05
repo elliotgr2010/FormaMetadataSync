@@ -1,6 +1,6 @@
-# ACC Sync — AutoCAD Civil 3D Plugin
+# Forma Sync — Autodesk Civil 3D Plugin
 
-Synchronises custom file attribute values between **Autodesk Forma** and an open DWG file. Values can be pulled from ACC into block attributes or Civil 3D property sets, pushed from the drawing back to ACC, or kept in sync bidirectionally with interactive conflict resolution.
+Synchronises custom file attribute values between **Autodesk Forma** and an open DWG file. Values can be pulled from Forma into block attributes or Civil 3D property sets, pushed from the drawing back to Forma, or kept in sync bidirectionally with interactive conflict resolution.
 
 ---
 
@@ -34,8 +34,8 @@ Synchronises custom file attribute values between **Autodesk Forma** and an open
 |---|---|
 | AutoCAD Civil 3D 2025 | Earlier versions are not supported |
 | Autodesk Desktop Connector | Required for automatic hub/project/item resolution from the local file path |
-| ACC account | Must have read access to the project; write access required for push operations |
-| .NET 8 runtime | Bundled with Civil 3D 2025 |
+| Autodesk Forma account | Must have read access to the project; write access required for push operations |
+| .NET 8 runtime or above | Bundled with Civil 3D 2025 |
 
 ---
 
@@ -52,7 +52,7 @@ The plugin ships as an AutoCAD Application Bundle (`AccC3DMetadata.bundle`). Aut
    C:\Users\<you>\AppData\Roaming\Autodesk\ApplicationPlugins\AccC3DMetadata.bundle
    ```
 2. Start (or restart) AutoCAD Civil 3D 2025.
-3. The **ACC Sync** ribbon tab loads automatically. No further steps are needed.
+3. The **Forma Sync** ribbon tab loads automatically. No further steps are needed.
 
 > **Tip:** You can open `%APPDATA%\Autodesk\ApplicationPlugins\` directly by pasting that path into Windows Explorer's address bar.
 
@@ -66,11 +66,11 @@ The plugin authenticates users via Autodesk Platform Services (APS) OAuth. **Eac
 
 - APS enforces per-application API rate limits. Sharing a Client ID pools all users into a single quota.
 - The application owner can revoke the Client ID at any time, instantly breaking authentication for every user relying on it.
-- Your ACC data is accessed under your credentials — the application ID should be under your organisation's control.
+- Your Forma data is accessed under your credentials — the application ID should be under your organisation's control.
 
 ### Creating an APS application
 
-1. Sign in to the [APS Developer Portal](https://aps.autodesk.com/) with an Autodesk account (this can be your personal or organisation account — it does not need ACC access itself).
+1. Sign in to the [APS Developer Portal](https://aps.autodesk.com/) with an Autodesk account (this can be your personal or organisation account — it does not need Forma access itself).
 2. Click **Create Application**.
 3. Fill in a name and description for your organisation (e.g. *"Acme Corp — ACC Sync"*).
 4. Under **Application type**, select **Desktop, Mobile, CLI** — this is the only type that supports the PKCE flow used by the plugin. Server-side types require a client secret, which is unsuitable for a locally installed tool.
@@ -92,7 +92,7 @@ The plugin authenticates users via Autodesk Platform Services (APS) OAuth. **Eac
 The easiest way is through the **Settings** ribbon button:
 
 1. Load the plugin (`NETLOAD`).
-2. On the **ACC Sync** ribbon tab, click **Settings** (or type `AccSyncSettings` at the command line).
+2. On the **Forma Sync** ribbon tab, click **Settings** (or type `AccSyncSettings` at the command line).
 3. Paste your Client ID into the field and click **Save**.
 
 The ID is stored in your Windows user profile (`%APPDATA%\AccC3DSync\accsync.clientid`) and persists across plugin updates and machine restarts. It is not shared with other Windows users on the same machine.
@@ -116,7 +116,7 @@ The plugin checks the user-profile location first, then the plugin directory as 
 The plugin uses **3-legged OAuth (PKCE)** — no password is stored. On the first sync command:
 
 1. A browser window opens showing the Autodesk sign-in page.
-2. Sign in with the account that has access to the ACC project.
+2. Sign in with the account that has access to the Forma project.
 3. After authorisation the browser shows *"Authentication complete. You may close this window."*
 4. The token is cached for the remainder of the AutoCAD session and silently refreshed as it approaches expiry. You will only be prompted again in a new session or after a network disruption.
 
@@ -125,10 +125,10 @@ The plugin uses **3-legged OAuth (PKCE)** — no password is stored. On the firs
 ## 5. Quick Start
 
 1. Install the bundle as described in [Section 2](#2-installation) and configure your APS Client ID via the **Settings** button (see [Section 3](#3-aps-application-setup)).
-2. Open a DWG that is synced to ACC via Desktop Connector (i.e. its path contains `Autodesk Docs\{hub}\{project}\…`).
+2. Open a DWG that is synced to Forma via Desktop Connector (i.e. its path contains `Autodesk Docs\{hub}\{project}\…`).
 3. Place an `accsync.xml` config file in the DWG's folder, or in any parent folder (see [Config File Discovery](#file-location-and-discovery)).
 4. Click **Pull from Docs** on the ribbon (or type `AccSyncPull`).
-5. A progress dialog shows each step; when complete, ACC attribute values have been written into the drawing's block attributes or property sets.
+5. A progress dialog shows each step; when complete, Forma attribute values have been written into the drawing's block attributes or property sets.
 
 ---
 
@@ -178,7 +178,7 @@ If no config file is found anywhere in the tree, the sync command fails with a m
 |---|---|---|
 | `version` | Yes | Must be `"1.0"` |
 | `hubId` | No | ACC hub ID. Omit to resolve automatically from the Desktop Connector path. |
-| `projectId` | No | ACC project ID (with or without the `b.` prefix). Omit to resolve automatically. |
+| `projectId` | No | Forma project ID (with or without the `b.` prefix). Omit to resolve automatically. |
 
 > **Tip:** You almost never need `hubId` or `projectId`. They exist only for drawings that are *not* opened via Desktop Connector (e.g. copied to a local folder manually). For Desktop Connector drawings, leave them out.
 
@@ -192,11 +192,11 @@ If no config file is found anywhere in the tree, the sync command fails with a m
 
 | Attribute | Required | Description |
 |---|---|---|
-| `itemId` | No | The ACC item lineage URN for this specific DWG. Omit entirely to auto-resolve by searching the ACC folder tree for a file whose name matches the open drawing. |
+| `itemId` | No | The Forma item lineage URN for this specific DWG. Omit entirely to auto-resolve by searching the Forma folder tree for a file whose name matches the open drawing. |
 
 > **Tip:** Omit `<DrawingItem>` for drawings synced via Desktop Connector — the item is found automatically. Add it only if auto-resolution is slow or the drawing name is not unique within the project.
 
-To find an item ID, navigate to the file in the ACC web interface, click **⋮ → Copy Link**, and extract the URN from the URL, or use the **AccSyncLoadConfig** command which shows the resolved item ID in the command line after a successful pull.
+To find an item ID, navigate to the file in the Forma web interface, click **⋮ → Copy Link**, and extract the URN from the URL, or use the **AccSyncLoadConfig** command which shows the resolved item ID in the command line after a successful pull.
 
 ---
 
@@ -244,10 +244,10 @@ Used when `type="PropertySet"`. Reads or writes a value in a Civil 3D property s
 
 ### Direction Values
 
-| Value | ACC → DWG | DWG → ACC | Notes |
+| Value | Forma → DWG | DWG → Forma | Notes |
 |---|---|---|---|
-| `Read` | ✅ | ❌ | Pull only. The DWG value is never sent to ACC. |
-| `Write` | ❌ | ✅ | Push only. The ACC value is never written into the DWG. |
+| `Read` | ✅ | ❌ | Pull only. The DWG value is never sent to Forma. |
+| `Write` | ❌ | ✅ | Push only. The Forma value is never written into the DWG. |
 | `ReadWrite` | ✅ | ✅ | Both directions. Conflicts are handled by `conflictStrategy`. Default. |
 
 The **command-level** direction (Pull / Push / Both) and the **mapping-level** direction are combined: the more restrictive of the two wins. For example, a mapping set to `Read` will never push even when the **Sync Both** command is used.
@@ -256,12 +256,12 @@ The **command-level** direction (Pull / Push / Both) and the **mapping-level** d
 
 ### ConflictStrategy Values
 
-A conflict occurs in a `ReadWrite` mapping when the ACC value and the DWG value differ at the start of a bidirectional sync.
+A conflict occurs in a `ReadWrite` mapping when the Forma value and the DWG value differ at the start of a bidirectional sync.
 
 | Value | Behaviour |
 |---|---|
-| `AccWins` | Overwrites the DWG value with the ACC value. No user prompt. |
-| `DwgWins` | Overwrites the ACC value with the DWG value. No user prompt. |
+| `AccWins` | Overwrites the DWG value with the Forma value. No user prompt. |
+| `DwgWins` | Overwrites the Forma value with the DWG value. No user prompt. |
 | `Prompt` | Defers the decision and shows the [Conflict Resolution Dialog](#9-conflict-resolution-dialog) before committing. Default. |
 | `Skip` | Leaves both values unchanged. |
 
@@ -401,14 +401,14 @@ Use this pattern when the drawing is not synced via Desktop Connector — for ex
 
 ## 8. Commands and Ribbon
 
-All commands are available from the **ACC Sync** ribbon tab or by typing directly at the AutoCAD command line.
+All commands are available from the **Forma Sync** ribbon tab or by typing directly at the AutoCAD command line.
 
 ### Autodesk Forma panel
 
 | Ribbon Button | Command | Description |
 |---|---|---|
-| Pull from Docs | `AccSyncPull` | Reads all ACC attribute values and writes them into the DWG. Mapping direction `Write` is ignored. |
-| Push to Docs | `AccSyncPush` | Reads all DWG attribute values and writes them to ACC. Mapping direction `Read` is ignored. |
+| Pull from Forma | `AccSyncPull` | Reads all Forma attribute values and writes them into the DWG. Mapping direction `Write` is ignored. |
+| Push to Forma | `AccSyncPush` | Reads all DWG attribute values and writes them to Forma. Mapping direction `Read` is ignored. |
 | Sync Both | `AccSyncBoth` | Bidirectional sync. Prompts for any conflicts where `conflictStrategy="Prompt"`. |
 
 ### Configuration panel
@@ -428,19 +428,19 @@ Sync complete — 4 mapping(s), 1 conflict(s) resolved, 0 conflict(s) cancelled,
 
 ## 9. Conflict Resolution Dialog
 
-The conflict dialog appears during **Sync Both** when one or more mappings have `conflictStrategy="Prompt"` and the ACC value differs from the DWG value.
+The conflict dialog appears during **Sync Both** when one or more mappings have `conflictStrategy="Prompt"` and the Forma value differs from the DWG value.
 
 Each row shows:
 
 | Column | Description |
 |---|---|
-| **Attribute** | The ACC attribute display name from the mapping |
-| **Autodesk Forma value** | The value currently stored in ACC |
+| **Attribute** | The Forma attribute display name from the mapping |
+| **Autodesk Forma value** | The value currently stored in Forma |
 | **Drawing value** | The value currently in the drawing |
 | **Resolution** | Drop-down: choose `AccWins`, `DwgWins`, or `Skip` for each conflict individually |
 
 - Click **Apply** to commit your selections and continue the sync.
-- Click **Cancel** to abandon all deferred conflicts (no DWG or ACC changes are made for those mappings; non-conflicting mappings are still applied).
+- Click **Cancel** to abandon all deferred conflicts (no DWG or Forma changes are made for those mappings; non-conflicting mappings are still applied).
 
 The footer of the dialog shows a quick reminder of what each resolution option means.
 
@@ -478,10 +478,6 @@ The APS Client ID has not been configured. Click **Settings** on the ACC Sync ri
 
 > This section is for developers who want to modify or extend the plugin. End users should follow [Section 2](#2-installation) instead.
 
-### Prerequisites
-
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- AutoCAD Civil 3D 2025 installed at the default location (`C:\Program Files\Autodesk\AutoCAD 2025\`), or set the `AcadDir` environment variable to a custom path before building
 
 ### Steps
 
