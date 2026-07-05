@@ -1,0 +1,88 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Library</OutputType>
+        <RootNamespace>AccC3DMetadata</RootNamespace>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+        <Platforms>AnyCPU;x64</Platforms>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    </PropertyGroup>
+    <PropertyGroup>
+        <AcadDir>$(AcadDir)</AcadDir>
+        <AcadDir Condition="'$(AcadDir)' == ''">C:\Program Files\Autodesk\AutoCAD 2025\</AcadDir>
+        <ArxMgdPath>$(AcadDir)</ArxMgdPath>
+        <OMFMgdPath>$(AcadDir)ACA\</OMFMgdPath>
+        <AeccMgdPath>$(AcadDir)C3D\</AeccMgdPath>
+        <AssemblySearchPaths>$(AcadDir);$(OMFMgdPath);$(AeccMgdPath);$(AssemblySearchPaths)</AssemblySearchPaths>
+    </PropertyGroup>
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Autodesk.Authentication" Version="2.0.0" />
+    <PackageReference Include="Autodesk.DataManagement" Version="2.0.0" />
+  </ItemGroup>
+    <ItemGroup>
+        <Reference Include="AcDbMgd">
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="accoremgd">
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="AcMgd">
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="AeccDbMgd">
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="AecBaseMgd">
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="AeccPressurePipesMgd">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="AecPropDataMgd">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="AcDbMgdBrep">
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="AdWindows">
+            <HintPath>$(AcadDir)AdWindows.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+    <ItemGroup Condition=" '$(UsingMicrosoftNETSdk)' == 'true' or '$(CLRSupport)' == 'NetCore' ">
+        <FrameworkReference Include="Microsoft.WindowsDesktop.App" />
+    </ItemGroup>
+    <ItemDefinitionGroup Condition=" '$(CLRSupport)' == 'NetCore' ">
+        <ClCompile>
+            <DisableSpecificWarnings>4945;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+        </ClCompile>
+    </ItemDefinitionGroup>
+
+  <!--
+    Post-build: populate AccC3DMetadata.bundle/Contents/ with the plugin DLL and all
+    NuGet runtime dependencies. AutoCAD assemblies are excluded from the build output
+    (Private=False) so they are never copied here. PDB debug symbols are also excluded.
+    The PackageContents.xml manifest already lives in the bundle root and is not touched.
+  -->
+  <PropertyGroup>
+    <BundleContentsDir>$(MSBuildProjectDirectory)\AccC3DMetadata.bundle\Contents</BundleContentsDir>
+  </PropertyGroup>
+
+  <Target Name="PopulateBundleContents" AfterTargets="Build">
+    <MakeDir Directories="$(BundleContentsDir)" />
+    <ItemGroup>
+      <_BundleDlls   Include="$(OutputPath)*.dll" />
+      <_BundleDeps   Include="$(OutputPath)*.deps.json" />
+      <_BundleFiles  Include="@(_BundleDlls);@(_BundleDeps)" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BundleFiles)"
+          DestinationFolder="$(BundleContentsDir)"
+          SkipUnchangedFiles="true" />
+    <Message Text="Bundle updated → $(BundleContentsDir)" Importance="high" />
+  </Target>
+
+</Project>

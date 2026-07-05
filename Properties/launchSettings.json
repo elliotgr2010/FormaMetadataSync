@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "AccC3DMetadata": {
+      "commandName": "Project"
+    },
+    "C3D 2025": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Autodesk\\AutoCAD 2025\\acad.exe",
+      "commandLineArgs": "/p \"<<C3D_Metric>>\" /product C3D /language en-US"
+    }
+  }
+}

@@ -1,0 +1,105 @@
+﻿using Autodesk.Authentication.Model;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+namespace AccC3DMetadata
+{
+    // AuthService implements a loopback PKCE flow: opens the browser, listens on the redirect URI,
+    // captures the authorization code, and exchanges it for tokens.
+    public class AuthService
+    {
+        public async Task<ThreeLeggedToken> GetThreeLeggedTokenAsync(string clientId, string codeChallenge, string redirectUri)
+        {
+            if (string.IsNullOrWhiteSpace(clientId)) throw new ArgumentNullException(nameof(clientId));
+            if (string.IsNullOrWhiteSpace(redirectUri)) throw new ArgumentNullException(nameof(redirectUri));
+
+            // Build the authorization URL (PKCE S256)
+            string scopes = "data:read data:write"; // adjust if you need different scopes
+            string authUrl = $"https://developer.api.autodesk.com/authentication/v1/authorize?response_type=code&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUri)}&scope={Uri.EscapeDataString(scopes)}&code_challenge={codeChallenge}&code_challenge_method=S256";
+
+            using var listener = new HttpListener();
+            listener.Prefixes.Add(redirectUri);
+            try
+            {
+                listener.Start();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to start HttpListener on '{redirectUri}': {ex.Message}", ex);
+            }
+
+            try
+            {
+                // Open system browser
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = authUrl, UseShellExecute = true });
+                }
+                catch
+                {
+                    // swallow; caller can open URL manually if OS policy prevents automatic launch
+                }
+
+                // Wait for incoming request (2 minute timeout)
+                var contextTask = listener.GetContextAsync();
+                var completed = await Task.WhenAny(contextTask, Task.Delay(TimeSpan.FromMinutes(2))).ConfigureAwait(false);
+                if (completed != contextTask)
+                {
+                    throw new TimeoutException("Timed out waiting for browser to complete authentication.");
+                }
+
+                var context = await contextTask.ConfigureAwait(false);
+                var qs = context.Request.QueryString;
+                var code = qs["code"];
+                var error = qs["error"];
+
+                // Send a simple response page
+                var respString = "<html><body>Authentication complete. You can close this window.</body></html>";
+                var buffer = Encoding.UTF8.GetBytes(respString);
+                context.Response.ContentLength64 = buffer.Length;
+                await context.Response.OutputStream.WriteAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+                context.Response.OutputStream.Close();
+
+                if (!string.IsNullOrWhiteSpace(error))
+                    throw new InvalidOperationException($"Authorization error: {error}");
+                if (string.IsNullOrWhiteSpace(code))
+                    throw new InvalidOperationException("No authorization code received.");
+
+                // Exchange authorization code for tokens
+                using var http = new HttpClient();
+                var form = new Dictionary<string, string>
+                {
+                    { "client_id", clientId },
+                    { "grant_type", "authorization_code" },
+                    { "code", code },
+                    { "redirect_uri", redirectUri },
+                    { "code_verifier", _lastCodeVerifier }
+                };
+
+                var resp = await http.PostAsync("https://developer.api.autodesk.com/authentication/v1/gettoken", new FormUrlEncodedContent(form)).ConfigureAwait(false);
+                var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                    throw new InvalidOperationException($"Token endpoint returned {resp.StatusCode}: {json}");
+
+                var token = JsonSerializer.Deserialize<ThreeLeggedToken>(json);
+                return token;
+            }
+            finally
+            {
+                try { listener.Stop(); } catch { }
+            }
+        }
+
+        // The loopback flow requires the code_verifier to be available when exchanging the code.
+        // We'll allow the caller to set it via this property. Functions already stores the last PKCE in a private field;
+        // expose a matching setter here by internal access.
+        private static string _lastCodeVerifier;
+        public static void SetCodeVerifier(string codeVerifier) => _lastCodeVerifier = codeVerifier;
+    }
+}

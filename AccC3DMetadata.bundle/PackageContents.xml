@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" Version="1.0.0.0"
+    ProductCode="{8B4F2C1D-9E3A-4B67-A8F2-1C5D9E7B3F2A}"
+    Name="AccC3DMetadata"
+    Description="Synchronises custom file attributes between Autodesk Construction Cloud and Civil 3D drawings.">
+
+  <CompanyDetails Name="AccSync" />
+
+  <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" />
+
+  <Components>
+    <ComponentEntry AppName="AccC3DMetadata" Version="1.0.0.0"
+        ModuleName="./Contents/AccC3DMetadata.dll"
+        AppDescription="ACC Sync ribbon and commands for Civil 3D">
+      <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" />
+    </ComponentEntry>
+  </Components>
+
+</ApplicationPackage>

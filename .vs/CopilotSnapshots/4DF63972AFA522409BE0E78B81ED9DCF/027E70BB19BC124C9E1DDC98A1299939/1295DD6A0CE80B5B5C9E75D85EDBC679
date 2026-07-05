@@ -1,0 +1,136 @@
+﻿using Autodesk.SDKManager;
+using Autodesk.Authentication;
+using Autodesk.Authentication.Model;
+using System;
+using System.Threading.Tasks;
+
+namespace AccC3DMetadata
+{
+    // AuthService delegates to the Autodesk.Authentication SDK's AuthenticationClient
+    // so the SDK controls how the interactive browser flow is performed.
+    public class AuthService
+    {
+        private readonly SDKManager _sdkManager;
+        private readonly AuthenticationClient _authClient;
+
+        public AuthService()
+        {
+            _sdkManager = SdkManagerBuilder.Create().Build();
+            _authClient = new AuthenticationClient(_sdkManager);
+        }
+
+        // Perform a full PKCE 3-legged interactive flow using a loopback redirect.
+        // This method will open the system browser, listen on the provided redirectUri for the
+        // authorization code, then exchange that code for a token using the Autodesk token endpoint.
+        // We accept both the code challenge (to include in the authorize URL) and the code verifier
+        // (used when exchanging the code for a token).
+        public async Task<ThreeLeggedToken> GetThreeLeggedTokenAsync(string clientId, string codeChallenge, string codeVerifier, string redirectUri)
+        {
+            if (string.IsNullOrWhiteSpace(clientId)) throw new ArgumentNullException(nameof(clientId));
+            try
+            {
+                // Build the authorize URL for Autodesk (response_type=code, PKCE S256)
+                var authorizeBase = "https://developer.api.autodesk.com/authentication/v1/authorize";
+                var scope = Uri.EscapeDataString("data:read data:write bucket:read bucket:create viewables:read");
+                string authUrl = $"{authorizeBase}?response_type=code&client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUri)}&scope={scope}&code_challenge={Uri.EscapeDataString(codeChallenge)}&code_challenge_method=S256";
+
+                // Start a loopback HTTP listener to capture the authorization code
+                using (var listener = new System.Net.HttpListener())
+                {
+                    // HttpListener requires the prefix to end with '/'
+                    var prefix = redirectUri;
+                    if (!prefix.EndsWith("/")) prefix += "/";
+                    listener.Prefixes.Add(prefix);
+                    listener.Start();
+
+                    // Open the system browser to the authorization URL
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = authUrl,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch
+                    {
+                        // If opening the browser fails, include the URL in the exception so the user can copy/paste
+                        listener.Stop();
+                        throw new InvalidOperationException($"Unable to open system browser. Open this URL manually: {authUrl}");
+                    }
+
+                    // Wait for the incoming authorization response (with a reasonable timeout)
+                    var contextTask = listener.GetContextAsync();
+                    var completed = await Task.WhenAny(contextTask, Task.Delay(TimeSpan.FromMinutes(2))).ConfigureAwait(false);
+                    if (completed != contextTask)
+                    {
+                        listener.Stop();
+                        throw new TimeoutException("Timed out waiting for the authorization response.");
+                    }
+
+                    var context = await contextTask.ConfigureAwait(false);
+
+                    // Send a simple response to the browser
+                    try
+                    {
+                        var responseString = "<html><body><h2>Authentication complete. You may close this window.</h2></body></html>";
+                        var buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
+                        context.Response.ContentLength64 = buffer.Length;
+                        context.Response.ContentType = "text/html";
+                        await context.Response.OutputStream.WriteAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+                        context.Response.OutputStream.Close();
+                    }
+                    catch { }
+
+                    // Extract authorization code from query
+                    var req = context.Request;
+                    string code = req.QueryString["code"];
+                    string error = req.QueryString["error"];
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        listener.Stop();
+                        throw new InvalidOperationException($"Authorization error: {error}");
+                    }
+                    if (string.IsNullOrEmpty(code))
+                    {
+                        listener.Stop();
+                        throw new InvalidOperationException("Authorization response did not contain a code.");
+                    }
+
+                    listener.Stop();
+
+                    // Exchange authorization code for token using Autodesk token endpoint (PKCE)
+                    var tokenEndpoint = "https://developer.api.autodesk.com/authentication/v1/gettoken";
+                    using (var http = new System.Net.Http.HttpClient())
+                    {
+                        var parts = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>
+                        {
+                            new System.Collections.Generic.KeyValuePair<string, string>("client_id", clientId),
+                            new System.Collections.Generic.KeyValuePair<string, string>("grant_type", "authorization_code"),
+                            new System.Collections.Generic.KeyValuePair<string, string>("code", code),
+                            new System.Collections.Generic.KeyValuePair<string, string>("redirect_uri", redirectUri),
+                            new System.Collections.Generic.KeyValuePair<string, string>("code_verifier", codeVerifier)
+                        };
+
+                        var content = new System.Net.Http.FormUrlEncodedContent(parts);
+                        var resp = await http.PostAsync(tokenEndpoint, content).ConfigureAwait(false);
+                        var respText = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (!resp.IsSuccessStatusCode)
+                        {
+                            throw new InvalidOperationException($"Token exchange failed: {resp.StatusCode} - {respText}");
+                        }
+
+                        // Deserialize into the SDK's ThreeLeggedToken model (property names should match)
+                        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        var token = System.Text.Json.JsonSerializer.Deserialize<ThreeLeggedToken>(respText, options);
+                        return token;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Authentication flow failed: {ex.Message}", ex);
+            }
+        }
+    }
+}

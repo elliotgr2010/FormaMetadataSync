@@ -1,0 +1,7 @@
+﻿.claude/
+CLAUDE.md
+*.env
+*.env.local
+appsettings.Development.json
+bin/
+obj/
