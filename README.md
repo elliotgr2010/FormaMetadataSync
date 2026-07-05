@@ -43,7 +43,9 @@ Synchronises custom file attribute values between **Autodesk Forma** and an open
 
 The plugin ships as an AutoCAD Application Bundle (`AccC3DMetadata.bundle`). AutoCAD discovers bundles automatically on startup — no `NETLOAD` command or startup suite entry is required.
 
-1. Copy the `AccC3DMetadata.bundle` folder into your AutoCAD ApplicationPlugins directory:
+1. Download the latest version from releases at https://github.com/elliotgr2010/FormaMetadataSync/releases
+
+2. Copy the `AccC3DMetadata.bundle` folder into your AutoCAD ApplicationPlugins directory:
    ```
    %APPDATA%\Autodesk\ApplicationPlugins\
    ```
@@ -51,8 +53,8 @@ The plugin ships as an AutoCAD Application Bundle (`AccC3DMetadata.bundle`). Aut
    ```
    C:\Users\<you>\AppData\Roaming\Autodesk\ApplicationPlugins\AccC3DMetadata.bundle
    ```
-2. Start (or restart) AutoCAD Civil 3D 2025.
-3. The **Forma Sync** ribbon tab loads automatically. No further steps are needed.
+3. Start (or restart) AutoCAD Civil 3D 2025.
+4. The **Forma Sync** ribbon tab loads automatically. No further steps are needed.
 
 > **Tip:** You can open `%APPDATA%\Autodesk\ApplicationPlugins\` directly by pasting that path into Windows Explorer's address bar.
 
